@@ -2,9 +2,10 @@ const fs = require('fs');
 const parse = require('csv-parse');
 const transform = require('stream-transform');
 const request = require('request');
+var options = { db: 'mongodb://localhost:27017/local', collection: 'services' }
+var streamToMongo = require('stream-to-mongo')(options);
 
 urlGenerator = function(record, callback){
-    setTimeout(function(){
       const odsCode = record[0];
       const active = record[12];
       const orgSubType = record[13];
@@ -12,42 +13,42 @@ urlGenerator = function(record, callback){
       let url = "";
       if (active === 'A' && orgSubType === '1') {
         url = `https://api.nhs.uk/organisations/${odsCode}`;
+        // console.log(url);
         callback(null, url + '\n');
       }
-    }, 500);
 }
 
 orgDetailsRetriever = function (url, callback) {
-	setTimeout( function() {
 		request(url, (err, res, body) => {
 			if (err) {
-        callback(null, `Download of ${url} encountered an error: ${err}\n`);
+        console.log(`Download of ${url} returned ${res.statusCode}`);
 			} else {
 				switch (res.statusCode) {
 					case 200:
-            callback(null, body);
+            callback(null, JSON.parse(body.replace('\"identifier\"', '\"_id\"')));
+            // callback(null, body.replace('\"identifier\"', '\"_id\"'));
 						break;
 					case 404:
-            callback(null, `404 ${url}`);
+            console.log(`404 ${url}`);
 						break;
 					case 500:
-            callback(null, `500 ${url}`);
+            console.log(`500 ${url}`);
 						break;
 					default:
-						callback(null, `Download of ${url} returned ${res.statusCode}`);
+						console.log(`Download of ${url} returned ${res.statusCode}`);
 				}
 			}
 		});
 
-	}, 500);
 
 }
 
-const parser = parse({delimiter: ','})
 const input = fs.createReadStream('./edispensary-50.csv');
 
-const urlTransformer = transform(urlGenerator, {parallel: 5});
-const pharmacyTransformer = transform(orgDetailsRetriever, {parallel: 5});
+const parser = parse({delimiter: ','})
+const urlTransformer = transform(urlGenerator);
+const orgTransformer = transform(orgDetailsRetriever);
 
-input.pipe(parser).pipe(urlTransformer).pipe(pharmacyTransformer).pipe(fs.createWriteStream('pharmacy-list.json'));
+// input.pipe(parser).pipe(urlTransformer).pipe(orgTransformer).pipe(fs.createWriteStream('org-list.json'));
+input.pipe(parser).pipe(urlTransformer).pipe(orgTransformer).pipe(streamToMongo);
 
