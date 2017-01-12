@@ -8,5 +8,10 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "csv-parse": "^1.1.9",
+    "stream-to-mongo-db": "^1.0.17",
+    "stream-transform": "^0.1.1"
+  }
 }
